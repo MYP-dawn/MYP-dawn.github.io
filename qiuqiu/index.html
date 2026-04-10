@@ -1,1 +1,764 @@
 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D小球跳跃跑酷</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(to bottom, #0f0f23 0%, #1a1a3e 30%, #2d2d5a 60%, #1a1a2e 100%);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            perspective: 600px;
+            cursor: grab;
+        }
+        
+        .game-container:active {
+            cursor: grabbing;
+        }
+        
+        /* 星空背景 */
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+        
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        /* 3D场景容器 */
+        .scene-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+        }
+        
+        /* 平台方块 - 从上往下掉落 - 左中右三个轨道 */
+        .platform {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #00CED1, #008B8B);
+            border: 3px solid #00FFFF;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.5), inset 0 0 20px rgba(0,255,255,0.3);
+            transform: rotateX(60deg);
+            animation: glow 2s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { box-shadow: 0 0 20px rgba(0,255,255,0.5), inset 0 0 20px rgba(0,255,255,0.3); }
+            to { box-shadow: 0 0 40px rgba(0,255,255,0.8), inset 0 0 30px rgba(0,255,255,0.5); }
+        }
+        
+        /* 完美落点 */
+        .platform.perfect {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border-color: #FFFF00;
+            box-shadow: 0 0 40px rgba(255,215,0,0.8), inset 0 0 30px rgba(255,215,0,0.5);
+        }
+        
+        /* 小球 - 在底部 */
+        .ball {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #FF6B6B, #C92A2A);
+            border-radius: 50%;
+            left: 50%;
+            bottom: 40px;
+            transform: translateX(-50%);
+            box-shadow: 0 0 25px rgba(255,107,107,0.8);
+            z-index: 100;
+            cursor: grab;
+            transition: left 0.1s ease-out;
+        }
+        
+        .ball:active {
+            cursor: grabbing;
+        }
+        
+        .ball::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            top: 6px;
+            left: 8px;
+        }
+        
+        /* 跳跃时的阴影 */
+        .ball-shadow {
+            position: absolute;
+            width: 40px;
+            height: 10px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 50%;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            z-index: 99;
+            pointer-events: none;
+            transition: left 0.1s ease-out;
+        }
+        
+        /* 分数板 */
+        .score-board {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: #FFD700;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 200;
+        }
+        
+        /* 连击显示 */
+        .combo-display {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 18px;
+            color: #FF6B6B;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .combo-display.show {
+            opacity: 1;
+        }
+        
+        /* 开始界面 */
+        .start-screen, .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 300;
+            border: 2px solid #FFD700;
+        }
+        
+        .start-screen h2, .game-over h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #FFD700;
+        }
+        
+        .start-screen p {
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.8;
+            color: #ccc;
+        }
+        
+        .btn {
+            padding: 15px 50px;
+            font-size: 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .start-btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(135deg, #FF6B6B, #C92A2A);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(255,215,0,0.4);
+        }
+        
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            color: white;
+            padding: 60px 80px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 300;
+            border: 3px solid #FFD700;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+        }
+        
+        .game-over p {
+            font-size: 22px;
+            margin: 15px 0;
+        }
+        
+        .fail-text {
+            font-size: 80px;
+            color: #FF6B6B;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+            animation: shake 0.5s ease-in-out;
+            margin: 15px 0;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        /* 完美跳跃提示 */
+        .perfect-jump {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            color: #FFD700;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255,215,0,0.8);
+            z-index: 150;
+            opacity: 0;
+            animation: perfectAnim 1s ease-out;
+        }
+        
+        @keyframes perfectAnim {
+            0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+            100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-50px); }
+        }
+        
+        /* 速度线效果 */
+        .speed-lines {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .speed-line {
+            position: absolute;
+            width: 2px;
+            height: 100px;
+            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.5), transparent);
+            left: 50%;
+            animation: speedLine 0.5s linear infinite;
+        }
+        
+        @keyframes speedLine {
+            from { transform: translateY(-100px) scaleY(0.5); opacity: 0; }
+            to { transform: translateY(600px) scaleY(2); opacity: 1; }
+        }
+        
+        /* 轨道指示器（可选，用于视觉引导） */
+        .lane-indicator {
+            position: absolute;
+            bottom: 50px;
+            width: 2px;
+            height: 100px;
+            background: rgba(255, 215, 0, 0.2);
+            z-index: 1;
+        }
+        
+        .lane-left { left: calc(50% - 100px); }
+        .lane-center { left: 50%; transform: translateX(-50%); }
+        .lane-right { left: calc(50% + 100px); }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <!-- 星空背景 -->
+        <div class="stars" id="stars"></div>
+        
+        <!-- 3D场景 -->
+        <div class="scene-container" id="sceneContainer">
+            <!-- 轨道指示线（视觉引导） -->
+            <div class="lane-indicator lane-left"></div>
+            <div class="lane-indicator lane-center"></div>
+            <div class="lane-indicator lane-right"></div>
+        </div>
+        
+        <!-- 小球阴影 -->
+        <div class="ball-shadow" id="ballShadow"></div>
+        
+        <!-- 小球 -->
+        <div class="ball" id="ball"></div>
+        
+        <!-- 速度线 -->
+        <div class="speed-lines" id="speedLines"></div>
+        
+        <!-- UI -->
+        <div class="score-board">得分: <span id="score">0</span></div>
+        <div class="combo-display" id="comboDisplay">连击 x<span id="combo">0</span></div>
+        
+        <!-- 开始界面 -->
+        <div class="start-screen" id="startScreen">
+            <h2>🏃 3D小球跳跃</h2>
+            <p>按 ← → 键或拖动切换左/中/右轨道<br>方块从上方掉落<br>只有踩到方块上才会跳跃<br>获得更高分数！</p>
+            <button class="btn start-btn" onclick="startGame()">开始游戏</button>
+        </div>
+        
+        <!-- 游戏结束界面 -->
+        <div class="game-over" id="gameOver">
+            <h2>💀 游戏结束</h2>
+          <!-- p class="fail-text">菜的抠脚</p>游戏结束界面 -->   
+          <h2>💀 菜的抠脚</h2>
+          <p>当前得分: <span id="finalScore">0</span></p>
+            <p>最高连击: <span id="finalCombo">0</span></p>
+            <button class="btn restart-btn" onclick="restartGame()">重新开始</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏元素
+        const ball = document.getElementById('ball');
+        const ballShadow = document.getElementById('ballShadow');
+        const gameContainer = document.getElementById('gameContainer');
+        const sceneContainer = document.getElementById('sceneContainer');
+        const scoreElement = document.getElementById('score');
+        const comboElement = document.getElementById('combo');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const finalScoreElement = document.getElementById('finalScore');
+        const finalComboElement = document.getElementById('finalCombo');
+        const gameOverScreen = document.getElementById('gameOver');
+        const startScreen = document.getElementById('startScreen');
+        const speedLines = document.getElementById('speedLines');
+        
+        // 游戏状态
+        let isJumping = false;
+        let isGameOver = false;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let gameSpeed = 1;
+        let gameLoop = null;
+        let platformSpawnTimer = null;
+        let platforms = [];
+        let hitCount = 0; // 踩到的方块数量
+        
+        // 轨道设置：左=-1, 中=0, 右=1
+        const LANES = {
+            LEFT: -1,
+            CENTER: 0,
+            RIGHT: 1
+        };
+        const LANE_OFFSET = 100; // 轨道间距
+        let currentLane = LANES.CENTER;
+        
+        // 初始化星空
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 60 + '%';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // 创建速度线
+        function createSpeedLines() {
+            for (let i = 0; i < 10; i++) {
+                const line = document.createElement('div');
+                line.className = 'speed-line';
+                line.style.left = (35 + Math.random() * 30) + '%';
+                line.style.animationDelay = (Math.random() * 0.5) + 's';
+                speedLines.appendChild(line);
+            }
+        }
+        
+        // 显示提示
+        function showPerfectJump(text) {
+            const perfect = document.createElement('div');
+            perfect.className = 'perfect-jump';
+            perfect.textContent = text || '完美!';
+            gameContainer.appendChild(perfect);
+            setTimeout(() => perfect.remove(), 1000);
+        }
+        
+        // 更新小球位置到对应轨道
+        function updateBallPosition() {
+            const offset = currentLane * LANE_OFFSET;
+            ball.style.left = `calc(50% + ${offset}px)`;
+            ballShadow.style.left = `calc(50% + ${offset}px)`;
+        }
+        
+        // 切换轨道
+        function moveLeft() {
+            if (currentLane > LANES.LEFT) {
+                currentLane--;
+                updateBallPosition();
+            }
+        }
+        
+        function moveRight() {
+            if (currentLane < LANES.RIGHT) {
+                currentLane++;
+                updateBallPosition();
+            }
+        }
+        
+        // 创建平台 - 从远处（上方）往近处（下方）掉落，随机出现在左中右轨道
+        function createPlatform() {
+            const platform = document.createElement('div');
+            platform.className = 'platform';
+            
+            // 随机选择轨道：0=左, 1=中, 2=右
+            const laneIndex = Math.floor(Math.random() * 3);
+            const laneOffset = (laneIndex - 1) * LANE_OFFSET; // -100, 0, 100
+            
+            // 从屏幕上方远处开始（负值表示屏幕外上方）
+            const startY = -150;
+            
+            platform.dataset.lane = laneIndex - 1; // -1, 0, 1
+            platform.dataset.y = startY;
+            platform.dataset.hit = 'false';
+            
+            // 设置初始位置 - 从上方远处开始，小尺寸
+            platform.style.top = startY + 'px';
+            platform.style.left = `calc(50% + ${laneOffset}px)`;
+            platform.style.transform = 'translateX(-50%) rotateX(60deg) scale(0.3)';
+            platform.style.opacity = '0.6';
+            
+            sceneContainer.appendChild(platform);
+            
+            const platformObj = {
+                element: platform,
+                lane: laneIndex - 1, // -1=左, 0=中, 1=右
+                y: startY,
+                hit: false,
+                passed: false
+            };
+            
+            platforms.push(platformObj);
+            return platformObj;
+        }
+        
+        // 持续生成平台
+        function startPlatformSpawner() {
+            // 先生成第一个平台
+            createPlatform();
+            
+            // 使用递归setTimeout确保稳定生成，不受gameSpeed变化影响
+            function spawnNext() {
+                if (isGameOver) return;
+                createPlatform();
+                // 根据当前速度调整生成间隔
+                const interval = Math.max(800, 2000 / gameSpeed);
+                platformSpawnTimer = setTimeout(spawnNext, interval);
+            }
+            
+            // 延迟后开始持续生成
+            platformSpawnTimer = setTimeout(spawnNext, 1500);
+        }
+        
+        // 更新游戏 - 方块从上往下掉落（从远处到近处）
+        function updateGame() {
+            if (isGameOver) return;
+            
+            // 所有平台向下移动（从屏幕上方往下方掉落）
+            const fallSpeed = 3 * gameSpeed; // 基础下落速度加快
+            
+            for (let i = platforms.length - 1; i >= 0; i--) {
+                const p = platforms[i];
+                p.y += fallSpeed;
+                
+                // 计算3D效果 - 从远处（小、透明）到近处（大、不透明）
+                // p.y 从 -150 增加到 600+
+                const progress = Math.max(0, (p.y + 150) / 700); // 归一化进度 0-1
+                const scale = 0.3 + progress * 1.0; // 从0.3放大到1.3
+                const opacity = Math.min(1, 0.5 + progress * 0.5);
+                
+                // 计算轨道位置
+                const laneOffset = p.lane * LANE_OFFSET;
+                
+                // 更新位置
+                p.element.style.top = p.y + 'px';
+                p.element.style.left = `calc(50% + ${laneOffset}px)`;
+                p.element.style.transform = `translateX(-50%) rotateX(60deg) scale(${scale})`;
+                p.element.style.opacity = opacity;
+                p.element.style.zIndex = Math.floor(p.y);
+                
+                // 检查是否到达小球位置（跳跃点）- 小球在 bottom: 100px，对应 y 约 460
+                if (!p.passed && p.y >= 420 && p.y < 480) {
+                    p.passed = true;
+                    checkLanding(p);
+                }
+                
+                // 边界情况：方块落到底部但尚未消失时，检测小球是否移动过来接触
+                // p.y >= 480 表示方块已通过跳跃点，p.y <= 650 表示方块还在屏幕内（完全消失前）
+                if (p.y >= 480 && p.y <= 650 && !p.hit && p.lane === currentLane) {
+                    // 小球移动过来接触到方块，判定得分
+                    hitPlatform(p);
+                }
+                
+                // 移除已经掉出屏幕的平台（掉到底部下方）
+                if (p.y > 650) {
+                    // 方块掉出屏幕且未被击中，游戏结束
+                    if (!p.hit) {
+                        gameOver();
+                    }
+                    p.element.remove();
+                    platforms.splice(i, 1);
+                }
+            }
+        }
+        
+        // 检查是否落在平台上（跳跃点检测）
+        function checkLanding(platform) {
+            if (!platform || platform.hit) return;
+            
+            // 判断小球和平台是否在同一个轨道
+            if (platform.lane === currentLane) {
+                // 成功落在平台上
+                hitPlatform(platform);
+            }
+            // 不在同一轨道时不立即结束，让方块继续下落，给玩家补救机会
+        }
+        
+        // 击中平台得分（统一处理）
+        function hitPlatform(platform) {
+            if (!platform || platform.hit) return;
+            
+            platform.hit = true;
+            platform.element.classList.add('perfect');
+            
+            hitCount++; // 踩到的方块数+1
+            const points = 1; // 每个方块都是1分
+            score += points;
+            
+            showPerfectJump('+' + points);
+            combo++;
+            
+            if (combo > maxCombo) maxCombo = combo;
+            comboElement.textContent = combo;
+            comboDisplay.classList.toggle('show', combo > 0);
+            
+            scoreElement.textContent = score;
+            
+            // 逐渐加速
+            gameSpeed = Math.min(gameSpeed + 0.05, 5);
+            
+            // 跳跃动画 - 只有踩到方块才会跳
+            jump();
+        }
+        
+        // 跳跃动画
+        function jump() {
+            if (isJumping) return;
+            isJumping = true;
+            
+            const jumpDuration = 300;
+            const startTime = Date.now();
+            
+            function animateJump() {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / jumpDuration;
+                
+                if (progress < 1) {
+                    const height = Math.sin(progress * Math.PI) * 60;
+                    ball.style.bottom = (40 + height) + 'px';
+                    ballShadow.style.bottom = (30 + height * 0.3) + 'px';
+                    ballShadow.style.transform = `translateX(-50%) scale(${1 - height * 0.005})`;
+                    ballShadow.style.opacity = 0.4 - height * 0.003;
+                    requestAnimationFrame(animateJump);
+                } else {
+                    isJumping = false;
+                    ball.style.bottom = '40px';
+                    ballShadow.style.bottom = '30px';
+                    ballShadow.style.transform = 'translateX(-50%) scale(1)';
+                    ballShadow.style.opacity = 0.4;
+                }
+            }
+            
+            animateJump();
+        }
+        
+        // 鼠标/触摸拖动控制 - 用于切换轨道
+        let isDragging = false;
+        let startX = 0;
+        
+        function initDragControl() {
+            ball.addEventListener('mousedown', (e) => {
+                if (isGameOver || startScreen.style.display !== 'none') return;
+                isDragging = true;
+                startX = e.clientX;
+                ball.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+            });
+            
+            document.addEventListener('mouseup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                ball.style.cursor = 'grab';
+                
+                // 根据拖动方向切换轨道
+                const deltaX = e.clientX - startX;
+                if (deltaX > 30) {
+                    moveRight();
+                } else if (deltaX < -30) {
+                    moveLeft();
+                }
+            });
+            
+            ball.addEventListener('touchstart', (e) => {
+                if (isGameOver || startScreen.style.display !== 'none') return;
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                e.preventDefault();
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+            });
+            
+            document.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                // 根据拖动方向切换轨道
+                const deltaX = e.changedTouches[0].clientX - startX;
+                if (deltaX > 30) {
+                    moveRight();
+                } else if (deltaX < -30) {
+                    moveLeft();
+                }
+            });
+        }
+        
+        // 开始游戏
+        function startGame() {
+            startScreen.style.display = 'none';
+            isGameOver = false;
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            hitCount = 0;
+            gameSpeed = 2; // 初始速度加快
+            currentLane = LANES.CENTER;
+            
+            // 清除旧平台
+            platforms.forEach(p => p.element.remove());
+            platforms = [];
+            
+            scoreElement.textContent = '0';
+            comboElement.textContent = '0';
+            comboDisplay.classList.remove('show');
+            
+            // 重置小球位置
+            updateBallPosition();
+            ball.style.bottom = '40px';
+            ballShadow.style.bottom = '30px';
+            
+            // 开始生成平台
+            startPlatformSpawner();
+            
+            // 开始游戏循环
+            gameLoop = setInterval(updateGame, 16);
+            
+            // 显示速度线
+            speedLines.style.opacity = 0.3;
+        }
+        
+        // 游戏结束
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameLoop);
+            clearTimeout(platformSpawnTimer);
+            
+            finalScoreElement.textContent = score;
+            finalComboElement.textContent = maxCombo;
+            
+            gameOverScreen.style.display = 'block';
+            speedLines.style.opacity = 0;
+        }
+        
+        // 重新开始
+        function restartGame() {
+            gameOverScreen.style.display = 'none';
+            clearInterval(gameLoop);
+            clearTimeout(platformSpawnTimer);
+            currentLane = LANES.CENTER;
+            updateBallPosition();
+            startGame();
+        }
+        
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (isGameOver || startScreen.style.display !== 'none') return;
+            
+            if (e.code === 'ArrowLeft') {
+                moveLeft();
+            } else if (e.code === 'ArrowRight') {
+                moveRight();
+            }
+        });
+        
+        // 初始化
+        createStars();
+        createSpeedLines();
+        initDragControl();
+        updateBallPosition();
+    </script>
+</body>
+</html>
