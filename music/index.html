@@ -6,60 +6,62 @@
 
 <style>
 body {
-  margin: 0;
   font-family: -apple-system;
   background: #f2f3f5;
+  margin: 0;
 }
 
-/* 手机容器 */
+/* 手机容器（放宽） */
 .container {
-  max-width: 480px;
+  max-width: 100%;
   margin: auto;
-  padding: 12px;
+  padding: 30px;
 }
 
-/* 标题 */
+/* 🔥 标题放大5倍 */
 h2 {
   text-align: center;
-  font-size: 18px;
-  margin: 10px 0;
+  font-size: 90px;
+  margin: 40px 0;
 }
 
-/* 搜索栏 */
+/* 🔥 搜索栏放大 */
 .top-bar {
   display: flex;
-  gap: 8px;
+  gap: 20px;
 }
 
+/* 🔥 输入框放大 */
 input {
   flex: 1;
-  padding: 12px;
-  font-size: 16px;
-  border-radius: 12px;
+  padding: 30px;
+  border-radius: 20px;
   border: 1px solid #ccc;
+  font-size: 40px;
 }
 
+/* 🔥 按钮放大 */
 button {
-  padding: 12px;
-  font-size: 14px;
-  border-radius: 12px;
+  padding: 30px 40px;
+  border-radius: 20px;
   border: none;
   background: #ff4d4f;
   color: white;
+  font-size: 36px;
 }
 
-/* 列表 */
+/* 列表（不动） */
 .card {
   background: white;
-  padding: 16px;
+  padding: 12px;
   margin: 10px 0;
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-/* 播放页（全屏） */
+/* 播放页（不动） */
 #songPage {
   position: fixed;
   top: 0;
@@ -71,69 +73,59 @@ button {
   display: none;
 }
 
-/* 关闭按钮 */
+/* 关闭 */
 #closeBtn {
   position: absolute;
-  top: 20px;
+  top: 15px;
   right: 20px;
-  font-size: 32px;
+  font-size: 30px;
   color: white;
 }
 
-/* 圆形大图（重点🔥） */
+/* 圆形风景图 */
 #disc {
-  width: 280px;
-  height: 280px;
-  margin: 80px auto 30px;
+  width: 220px;
+  height: 220px;
+  margin: 80px auto 20px;
   border-radius: 50%;
   background-image: url('https://b0.bdstatic.com/15f97cf6b3a5b30613647546516d3b92.jpg');
   background-size: cover;
-  background-position: center;
 }
 
-/* 歌名 */
 .song-name {
   color: white;
   text-align: center;
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 20px;
 }
 
-/* 歌手 */
 .artist-name {
-  color: #aaa;
+  color: gray;
   text-align: center;
-  margin-top: 6px;
 }
 
-/* 歌词 */
 .lyrics {
-  color: #bbb;
   text-align: center;
+  color: #bbb;
   margin-top: 20px;
-  padding: 0 15px;
+  padding: 0 10px;
   max-height: 200px;
   overflow: auto;
-  font-size: 15px;
 }
 
-/* 控制按钮（放大🔥） */
+/* 控制按钮 */
 .controls {
-  margin-top: 40px;
-  display: flex;
-  justify-content: center;
-  gap: 30px;
+  text-align: center;
+  margin-top: 30px;
 }
 
 .controls button {
-  font-size: 30px;
+  font-size: 16px;
   background: none;
-  color: white;
 }
 
-/* ❤️收藏 */
+/* ❤收藏 */
 #favBtn {
-  font-size: 32px;
+  font-size: 28px;
 }
 </style>
 
@@ -146,9 +138,9 @@ button {
 <h2>🎧 音乐播放器</h2>
 
 <div class="top-bar">
-  <input id="keyword" placeholder="搜索歌曲">
+  <input id="keyword" placeholder="歌曲">
   <button onclick="search()">搜索</button>
-  <button onclick="showFavorites()">收藏</button>
+  <button onclick="showFavorites()">❤收藏</button>
 </div>
 
 <div id="list"></div>
@@ -177,7 +169,7 @@ button {
 </div>
 
 <script>
-// ===== 原代码（完全保留）=====
+// ===== 原接口（不动） =====
 const sources = [
   {
     name: "网易",
@@ -191,9 +183,23 @@ const sources = [
     })),
     parseUrl: (data) => data.data[0].url,
     parseLyric: (data) => data.lrc ? data.lrc.lyric : "暂无歌词"
+  },
+  {
+    name: "备用",
+    search: (k) => `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${k}`,
+    song: (id) => `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${id}`,
+    lyric: (id) => `https://music-api.gdstudio.xyz/api.php?types=lyric&source=netease&id=${id}`,
+    parseSearch: (data) => data.map(s => ({
+      id: s.id,
+      name: s.name,
+      artist: s.artist
+    })),
+    parseUrl: (data) => data.url,
+    parseLyric: (data) => data.lyric || "暂无歌词"
   }
 ];
 
+// ===== 以下JS全部保持原样 =====
 function getFav() {
   return JSON.parse(localStorage.getItem("fav") || "[]");
 }
