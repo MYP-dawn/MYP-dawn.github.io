@@ -128,25 +128,48 @@ button {
 <audio id="audio"></audio>
 
 <script>
-// ====== API ======
-const apiSearch = k => `https://api.imjad.cn/cloudmusic/?type=search&s=${k}`;
-const apiSong = id => `https://api.imjad.cn/cloudmusic/?type=song&id=${id}`;
+// 多源接口（自动兜底）
+const apis = [
+  {
+    search: k => `https://api.imjad.cn/cloudmusic/?type=search&s=${k}`,
+    song: id => `https://api.imjad.cn/cloudmusic/?type=song&id=${id}`,
+    parseSearch: d => d.result?.songs || [],
+    parseUrl: d => d.data?.[0]?.url
+  },
+  {
+    search: k => `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${k}`,
+    song: id => `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${id}`,
+    parseSearch: d => d || [],
+    parseUrl: d => d.url
+  }
+];
 
-// ====== 数据 ======
+// 数据
 let listData = [];
 let current = 0;
 
-// ====== 搜索 ======
+// 搜索
 async function search(){
   const k = document.getElementById("kw").value;
-  const res = await fetch(apiSearch(k));
-  const data = await res.json();
 
-  listData = data.result.songs;
+  for (let api of apis) {
+    try {
+      const res = await fetch(api.search(k));
+      const data = await res.json();
+      const songs = api.parseSearch(data);
 
-  render();
+      if (songs && songs.length) {
+        listData = songs;
+        render();
+        return;
+      }
+    } catch(e){}
+  }
+
+  alert("搜索失败（接口挂了）");
 }
 
+// 渲染搜索结果
 function render(){
   const el = document.getElementById("list");
   el.innerHTML = "";
@@ -160,33 +183,38 @@ function render(){
   });
 }
 
-// ====== 播放 ======
+// 播放
 async function playSong(i){
   current = i;
   const song = listData[i];
 
   document.getElementById("pname").innerText = song.name;
-  document.getElementById("partist").innerText = song.artists[0].name;
+  document.getElementById("partist").innerText =
+    song.artists?.[0]?.name || song.artist;
 
-  const res = await fetch(apiSong(song.id));
-  const data = await res.json();
-
-  const url = data.data[0].url;
   const audio = document.getElementById("audio");
 
-  if(!url){
-    alert("无法播放");
-    return;
+  for (let api of apis) {
+    try {
+      const res = await fetch(api.song(song.id));
+      const data = await res.json();
+      const url = api.parseUrl(data);
+
+      if (url) {
+        audio.src = url;
+        audio.play();
+
+        document.getElementById("playerPage").style.display = "block";
+        document.getElementById("disc").classList.remove("pause");
+        return;
+      }
+    } catch(e){}
   }
 
-  audio.src = url;
-  audio.play();
-
-  document.getElementById("playerPage").style.display = "block";
-  document.getElementById("disc").classList.remove("pause");
+  alert("所有音源都无法播放");
 }
 
-// ====== 控制 ======
+// 播放/暂停
 function toggle(){
   const a = document.getElementById("audio");
   const disc = document.getElementById("disc");
@@ -200,16 +228,19 @@ function toggle(){
   }
 }
 
+// 上一首
 function prev(){
   current = (current -1 + listData.length)%listData.length;
   playSong(current);
 }
 
+// 下一首
 function next(){
   current = (current +1)%listData.length;
   playSong(current);
 }
 
+// 返回
 function back(){
   document.getElementById("playerPage").style.display = "none";
 }
