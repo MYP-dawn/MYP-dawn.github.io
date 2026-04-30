@@ -75,18 +75,82 @@ button {
   width: 100%;
 }
 
+/* 新页面样式：风景图替换黑胶唱片风格 */
 #songPage {
   display: none;
-  background: #fff;
+  background-color: #000;
+  color: white;
   padding: 20px;
+  text-align: center;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+#closeBtn {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 30px;
+  color: white;
+  cursor: pointer;
+}
+
+#closeBtn:hover {
+  color: #ff4d4f;
+}
+
+/* 不旋转的风景图 */
+#disc {
+  width: 200px;
+  height: 200px;
+  margin: 40px auto;
+  border-radius: 50%;
+  background-image: url('https://b0.bdstatic.com/15f97cf6b3a5b30613647546516d3b92.jpg');
+  background-size: cover;
+  position: relative;
+}
+
+.song-name {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.artist-name {
+  font-size: 14px;
+  color: gray;
 }
 
 .lyrics {
   margin-top: 20px;
   font-size: 14px;
-  color: #555;
+  color: #bbb;
+}
+
+.controls {
+  margin-top: 30px;
+}
+
+button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  margin: 10px;
+}
+
+button:hover {
+  color: #ff4d4f;
+}
+
+/* 收藏按钮 */
+#favBtn {
+  font-size: 24px;
+  cursor: pointer;
+}
+
+#favBtn.active {
+  color: red;
 }
 </style>
 
@@ -106,22 +170,29 @@ button {
 
 <audio id="player" controls></audio>
 
-<!-- 新页面显示歌曲信息 -->
+<!-- 新页面：歌曲播放详情 -->
 <div id="songPage">
-  <h3 id="songName"></h3>
-  <p id="songArtist"></p>
-  <div>
-    <img id="coverImage" width="200" />
+  <div id="closeBtn" onclick="closePlayer()">×</div>
+  
+  <div id="disc">
+    <img id="coverImage" width="180" height="180" style="border-radius: 50%;" />
   </div>
-  <div class="lyrics" id="lyrics"></div>
+
+  <div id="songName" class="song-name"></div>
+  <div id="artistName" class="artist-name"></div>
+
+  <div id="lyrics" class="lyrics">加载歌词...</div>
+
   <div class="controls">
-    <button onclick="prev()">⏮ 上一曲</button>
+    <button onclick="prevSong()">⏮ 上一曲</button>
     <button onclick="togglePlayPause()">⏯ 播放/暂停</button>
-    <button onclick="next()">⏭ 下一曲</button>
+    <button onclick="nextSong()">⏭ 下一曲</button>
+    <button id="favBtn" onclick="toggleFav()">❤️ 收藏</button>
   </div>
 </div>
 
 <script>
+// 接口设置：多个备用接口，尝试不同平台
 const sources = [
   {
     name: "网易",
@@ -136,7 +207,7 @@ const sources = [
     parseLyrics: (data) => data.lyrics || "暂无歌词"
   },
   {
-    name: "备用",
+    name: "QQ音乐",
     search: (k) => `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${k}`,
     song: (id) => `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${id}`,
     parseSearch: (data) => data.map(s => ({
@@ -146,55 +217,26 @@ const sources = [
     })),
     parseUrl: (data) => data.url,
     parseLyrics: (data) => data.lyrics || "暂无歌词"
+  },
+  {
+    name: "酷狗",
+    search: (k) => `https://api.kugou.com/v1/search?keyword=${k}`,
+    song: (id) => `https://api.kugou.com/v1/song?sid=${id}`,
+    parseSearch: (data) => data.data.songs.map(s => ({
+      id: s.song_id,
+      name: s.song_name,
+      artist: s.artist_name
+    })),
+    parseUrl: (data) => data.data.url,
+    parseLyrics: (data) => data.lyrics || "暂无歌词"
   }
 ];
 
-// 收藏缓存
-function getFav() {
-  return JSON.parse(localStorage.getItem("fav") || "[]");
-}
-
-function saveFav(list) {
-  localStorage.setItem("fav", JSON.stringify(list));
-}
-
-function toggleFav(song) {
-  let fav = getFav();
-  const index = fav.findIndex(s => s.id === song.id);
-
-  if (index > -1) {
-    fav.splice(index, 1);
-  } else {
-    fav.push(song);
-  }
-
-  saveFav(fav);
-  renderList(currentSongs);
-}
-
-// 判断是否收藏
-function isFav(id) {
-  return getFav().some(s => s.id === id);
-}
-
-// 排序优化（优先原唱）
-function sortSongs(list, keyword) {
-  return list.sort((a, b) => {
-    const score = (s) => {
-      let val = 0;
-      if (s.name.includes(keyword)) val += 10;
-      if (s.artist.includes(keyword)) val += 5;
-      if (s.name === keyword) val += 20;
-      return val;
-    };
-    return score(b) - score(a);
-  });
-}
-
 let currentSongs = [];
-let currentSong = null;
+let currentSongIndex = 0;
+let isPlaying = false;
 
-// 搜索
+// 搜索功能
 async function search() {
   const k = document.getElementById("keyword").value;
   const listEl = document.getElementById("list");
@@ -207,7 +249,6 @@ async function search() {
       let songs = s.parseSearch(data);
 
       if (songs.length) {
-        songs = sortSongs(songs, k);
         currentSongs = songs;
         renderList(songs);
         return;
@@ -215,10 +256,10 @@ async function search() {
     } catch(e) {}
   }
 
-  listEl.innerHTML = "没有结果";
+  listEl.innerHTML = "没有找到结果";
 }
 
-// 渲染列表
+// 渲染搜索列表
 function renderList(songs) {
   const list = document.getElementById("list");
   list.innerHTML = "";
@@ -236,24 +277,19 @@ function renderList(songs) {
 
     left.onclick = () => play(song.id);
 
-    const star = document.createElement("div");
-    star.className = "star " + (isFav(song.id) ? "active" : "");
-    star.innerText = "★";
-    star.onclick = (e) => {
-      e.stopPropagation();
-      toggleFav(song);
-    };
-
     div.appendChild(left);
-    div.appendChild(star);
-
     list.appendChild(div);
   });
 }
 
-// 播放
+// 播放歌曲并进入新的页面
 async function play(id) {
+  const song = currentSongs.find(s => s.id === id);
   const player = document.getElementById("player");
+
+  // 隐藏歌曲列表，显示播放器页面
+  document.getElementById("list").style.display = "none";
+  document.getElementById("songPage").style.display = "block";
 
   for (let s of sources) {
     try {
@@ -264,10 +300,8 @@ async function play(id) {
       if (url) {
         player.src = url;
         player.play();
-        currentSong = id;
-
-        // 显示歌曲详情
-        showSongPage(id);
+        isPlaying = true;
+        showSongPage(song, s);
         return;
       }
     } catch(e) {}
@@ -276,61 +310,108 @@ async function play(id) {
   alert("播放失败");
 }
 
-// 显示歌曲详情页
-async function showSongPage(id) {
-  const song = currentSongs.find(s => s.id === id);
-  const songPage = document.getElementById("songPage");
-  const lyrics = await fetchLyrics(id);
-
+// 显示歌曲详情页面
+async function showSongPage(song, source) {
   document.getElementById("songName").innerText = song.name;
-  document.getElementById("songArtist").innerText = song.artist;
-  document.getElementById("coverImage").src = `https://p2.music.126.net/${song.id}.jpg`; // 示例封面图
+  document.getElementById("artistName").innerText = song.artist;
+  
+  // 设置封面
+  document.getElementById("coverImage").src = `https://p2.music.126.net/${song.id}.jpg`; // 使用默认封面
+  
+  // 显示歌词
+  const lyrics = await fetchLyrics(song.id, source);
+  document.getElementById("lyrics").innerText = lyrics;
 
-  document.getElementById("lyrics").innerText = lyrics || "歌词暂未加载";
-
-  songPage.style.display = "block";
+  // 更新收藏按钮状态
+  const favBtn = document.getElementById("favBtn");
+  if (isFav(song.id)) {
+    favBtn.classList.add("active"); // 已收藏，心形变红
+  } else {
+    favBtn.classList.remove("active"); // 未收藏，心形为白色
+  }
 }
 
 // 获取歌词
-async function fetchLyrics(id) {
-  for (let s of sources) {
-    try {
-      const res = await fetch(s.song(id));
-      const data = await res.json();
-      return s.parseLyrics(data);
-    } catch(e) {}
+async function fetchLyrics(id, source) {
+  try {
+    const res = await fetch(source.song(id));
+    const data = await res.json();
+    return source.parseLyrics(data);
+  } catch (e) {
+    return "歌词未找到";
   }
-  return "未找到歌词";
+}
+
+// 判断是否收藏
+function isFav(id) {
+  return getFav().some(s => s.id === id);
+}
+
+// 获取收藏
+function getFav() {
+  return JSON.parse(localStorage.getItem("fav") || "[]");
+}
+
+// 切换收藏状态
+function toggleFav() {
+  const song = currentSongs[currentSongIndex];
+  let fav = getFav();
+
+  const index = fav.findIndex(s => s.id === song.id);
+  if (index === -1) {
+    fav.push(song);
+  } else {
+    fav.splice(index, 1);
+  }
+
+  localStorage.setItem("fav", JSON.stringify(fav));
+
+  // 更新收藏按钮的状态
+  const favBtn = document.getElementById("favBtn");
+  if (index === -1) {
+    favBtn.classList.add("active"); // 收藏后显示为红色
+    alert("已收藏");
+  } else {
+    favBtn.classList.remove("active"); // 取消收藏后恢复为白色
+    alert("已取消收藏");
+  }
 }
 
 // 返回按钮
-function back() {
+function closePlayer() {
   document.getElementById("songPage").style.display = "none";
+  document.getElementById("list").style.display = "block";
 }
 
 // 播放/暂停
 function togglePlayPause() {
   const player = document.getElementById("player");
-  if (player.paused) {
-    player.play();
-  } else {
+  const disc = document.getElementById("disc");
+
+  if (isPlaying) {
     player.pause();
+    disc.classList.add("pause"); // 暂停时停止旋转
+    isPlaying = false;
+  } else {
+    player.play();
+    disc.classList.remove("pause"); // 播放时恢复旋转
+    isPlaying = true;
   }
 }
 
 // 上一曲
-function prev() {
-  currentSong = (currentSong - 1 + currentSongs.length) % currentSongs.length;
-  play(currentSongs[currentSong].id);
+function prevSong() {
+  currentSongIndex = (currentSongIndex - 1 + currentSongs.length) % currentSongs.length;
+  play(currentSongs[currentSongIndex].id);
 }
 
 // 下一曲
-function next() {
-  currentSong = (currentSong + 1) % currentSongs.length;
-  play(currentSongs[currentSong].id);
+function nextSong() {
+  currentSongIndex = (currentSongIndex + 1) % currentSongs.length;
+  play(currentSongs[currentSongIndex].id);
 }
 
-// 收藏页
+// 显示收藏页面
 function showFavorites() {
   const fav = getFav();
   currentSongs = fav;
