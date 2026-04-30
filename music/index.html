@@ -1,1 +1,240 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音乐播放器</title>
+
+<style>
+body {
+  margin: 0;
+  background: black;
+  color: white;
+  font-family: -apple-system;
+  overflow: hidden;
+}
+
+/* 页面容器 */
+.container {
+  width: 200%;
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+/* 播放页 */
+.player-page {
+  width: 100%;
+  text-align: center;
+}
+
+/* 歌词页 */
+.lyric-page {
+  width: 100%;
+  padding: 40px 20px;
+  overflow-y: auto;
+  color: #ccc;
+}
+
+/* 黑胶 */
+.disc {
+  width: 250px;
+  height: 250px;
+  margin: 60px auto;
+  border-radius: 50%;
+  background: radial-gradient(circle, #222 40%, #000 60%);
+  position: relative;
+  animation: spin 6s linear infinite;
+}
+
+.disc.pause {
+  animation-play-state: paused;
+}
+
+.disc img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 动画 */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 信息 */
+.song-name {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.artist {
+  color: gray;
+  margin-bottom: 10px;
+}
+
+/* 控制按钮 */
+.controls {
+  margin-top: 30px;
+}
+
+button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  margin: 10px;
+}
+
+/* 进度条 */
+input[type=range] {
+  width: 80%;
+}
+</style>
+
+</head>
+
+<body>
+
+<div id="app">
+
+<div class="container" id="container">
+
+<!-- 播放页 -->
+<div class="player-page">
+
+<div class="disc" id="disc">
+<img id="cover" src="https://picsum.photos/200">
+</div>
+
+<div class="song-name" id="name">未播放</div>
+<div class="artist" id="artist">---</div>
+
+<input type="range" id="progress">
+
+<div class="controls">
+<button onclick="prev()">⏮</button>
+<button onclick="togglePlay()">⏯</button>
+<button onclick="next()">⏭</button>
+<button onclick="toggleFav()">❤️</button>
+<button onclick="showList()">📄</button>
+</div>
+
+</div>
+
+<!-- 歌词页 -->
+<div class="lyric-page" id="lyric">
+<p>暂无歌词</p>
+</div>
+
+</div>
+
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+let index = 0;
+let playlist = [];
+let playing = false;
+
+const audio = document.getElementById("audio");
+
+// 示例数据（你可以接你之前的搜索结果）
+playlist = [
+  {
+    name: "青花瓷",
+    artist: "周杰伦",
+    url: "https://music.163.com/song/media/outer/url?id=25638272.mp3",
+    cover: "https://p2.music.126.net/xxx.jpg"
+  }
+];
+
+// 播放
+function play(i) {
+  const song = playlist[i];
+  index = i;
+
+  document.getElementById("name").innerText = song.name;
+  document.getElementById("artist").innerText = song.artist;
+  document.getElementById("cover").src = song.cover || "https://picsum.photos/200";
+
+  audio.src = song.url;
+  audio.play();
+  playing = true;
+
+  document.getElementById("disc").classList.remove("pause");
+}
+
+// 播放/暂停
+function togglePlay() {
+  if (!audio.src) return;
+
+  if (audio.paused) {
+    audio.play();
+    document.getElementById("disc").classList.remove("pause");
+  } else {
+    audio.pause();
+    document.getElementById("disc").classList.add("pause");
+  }
+}
+
+// 上一首
+function prev() {
+  index = (index - 1 + playlist.length) % playlist.length;
+  play(index);
+}
+
+// 下一首
+function next() {
+  index = (index + 1) % playlist.length;
+  play(index);
+}
+
+// 收藏
+function toggleFav() {
+  alert("已收藏（你可以接入localStorage）");
+}
+
+// 播放列表
+function showList() {
+  alert("这里可以做播放列表弹窗");
+}
+
+// 滑动切换
+let startX = 0;
+
+document.addEventListener("touchstart", e => {
+  startX = e.touches[0].clientX;
+});
+
+document.addEventListener("touchend", e => {
+  let dx = e.changedTouches[0].clientX - startX;
+
+  if (dx < -50) {
+    document.getElementById("container").style.transform = "translateX(-100%)";
+  } else if (dx > 50) {
+    document.getElementById("container").style.transform = "translateX(0)";
+  }
+});
+
+// 自动播放下一首
+audio.onended = () => next();
+
+// 进度条
+audio.ontimeupdate = () => {
+  document.getElementById("progress").value = audio.currentTime / audio.duration * 100;
+};
+
+document.getElementById("progress").oninput = function() {
+  audio.currentTime = this.value / 100 * audio.duration;
+};
+</script>
+
+</body>
+</html>
