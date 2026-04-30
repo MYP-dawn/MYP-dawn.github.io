@@ -1,254 +1,112 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>6模块圆形大转盘</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Arial', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
-            margin: 0;
-            padding: 20px;
-            color: white;
-        }
-        
-        .container {
-            text-align: center;
-        }
-        
-        h1 {
-            margin-bottom: 30px;
-            font-size: 2.5rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        .roulette-wrapper {
-            position: relative;
-            width: 400px;
-            height: 400px;
-            margin: 20px auto;
-        }
-        
-        .wheel-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        
-        /* 转盘 - 整体旋转 */
-        .wheel {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            position: relative;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
-            transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
-            background: transparent;
-        }
-        
-        /* 精美箭头指针 */
-        .pointer-container {
-            position: absolute;
-            top: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 50px;
-            height: 60px;
-            z-index: 10;
-        }
-        
-        .pointer {
-            width: 0;
-            height: 0;
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-top: 45px solid #ff4757;
-            filter: drop-shadow(0 4px 10px rgba(255, 71, 87, 0.5));
-            animation: pointerGlow 1.5s ease-in-out infinite alternate;
-        }
-        
-        @keyframes pointerGlow {
-            from { filter: drop-shadow(0 4px 10px rgba(255, 71, 87, 0.5)); }
-            to { filter: drop-shadow(0 6px 15px rgba(255, 71, 87, 0.8)); }
-        }
-        
-        .center-circle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70px;
-            height: 70px;
-            background: #fff;
-            border-radius: 50%;
-            z-index: 5;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* 每个扇区 */
-        .sector {
-            position: absolute;
-            width: 200px;
-            height: 200px;
-            overflow: hidden;
-            transform-origin: 200px 200px;
-        }
-        
-        .sector-content {
-            position: absolute;
-            width: 283px;
-            height: 283px;
-            border-radius: 50%;
-            left: -83px;
-            top: -83px;
-        }
-        
-        .sector-number {
-            position: absolute;
-            font-size: 42px;
-            font-weight: bold;
-            z-index: 10;
-            transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
-        }
-        
-        .button-section {
-            margin-top: 40px;
-            text-align: center;
-        }
-        
-        .spin-button {
-            padding: 15px 50px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: linear-gradient(to right, #e74c3c, #c0392b);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
-        }
-        
-        .spin-button:hover:not(:disabled) {
-            transform: translateY(-4px);
-        }
-        
-        .spin-button:disabled {
-            background: #7f8c8d;
-            cursor: not-allowed;
-        }
-        
-        .instruction {
-            margin-top: 20px;
-            opacity: 0.8;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>多源音乐播放器</title>
+<style>
+body { font-family: Arial; padding: 20px; background:#f5f5f5; }
+input { width: 70%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;}
+button { padding: 10px 15px; border:none; border-radius:8px; background:#ff4d4f; color:white;}
+li { padding:10px; margin:5px 0; background:white; border-radius:8px; cursor:pointer;}
+li:hover { background:#eee; }
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>🎡 6模块圆形大转盘 🎡</h1>
-        
-        <div class="roulette-wrapper">
-            <div class="pointer-container">
-                <div class="pointer"></div>
-            </div>
-            
-            <div class="wheel-container">
-                <!-- 转盘整体 -->
-                <div class="wheel" id="wheel">
-                    <!-- SVG绘制6个扇区 -->
-                    <svg viewBox="0 0 400 400" width="100%" height="100%">
-                        <defs>
-                            <path id="sector" d="M 200 200 L 200 0 A 200 200 0 0 1 373.2 100 Z" />
-                        </defs>
-                        <!-- 红色=1, 橙色=2, 黄色=3, 绿色=4, 蓝色=5, 紫色=6 -->
-                        <use href="#sector" fill="#e74c3c" transform="rotate(0 200 200)" />
-                        <use href="#sector" fill="#e67e22" transform="rotate(60 200 200)" />
-                        <use href="#sector" fill="#f1c40f" transform="rotate(120 200 200)" />
-                        <use href="#sector" fill="#2ecc71" transform="rotate(180 200 200)" />
-                        <use href="#sector" fill="#3498db" transform="rotate(240 200 200)" />
-                        <use href="#sector" fill="#9b59b6" transform="rotate(300 200 200)" />
-                    </svg>
-                    
 
-                </div>
-                
-                <div class="center-circle"></div>
-            </div>
-        </div>
-        
-        <div class="button-section">
-            <button class="spin-button" id="spinButton">🎯 开始旋转</button>
-        </div>
-        <p class="instruction">点击按钮顺时针旋转3秒，停止时弹出结果</p>
-    </div>
+<h2>🎧 多源音乐播放器</h2>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const wheel = document.getElementById('wheel');
-            const spinButton = document.getElementById('spinButton');
-            
-            let isSpinning = false;
-            let totalRotation = 0;
+<input id="keyword" placeholder="输入歌曲名">
+<button onclick="search()">搜索</button>
 
-            // 颜色对应关系
-            const colors = {
-                1: '红色',
-                2: '橙色',
-                3: '黄色',
-                4: '绿色',
-                5: '蓝色',
-                6: '紫色'
-            };
-            
-            spinButton.addEventListener('click', function() {
-                if (isSpinning) return;
-                
-                isSpinning = true;
-                spinButton.disabled = true;
-                spinButton.textContent = "🎡 旋转中...";
-                
-                // 随机选1-6
-                const selectedNumber = Math.floor(Math.random() * 6) + 1;
-                
-                // 计算顺时针目标角度
-                const sectorCenterAngle = (selectedNumber - 1) * 60 + 30;
-                const baseRotation = totalRotation + 1080;
-                let targetRotation = Math.ceil((baseRotation + sectorCenterAngle) / 360) * 360 - sectorCenterAngle;
-                if (targetRotation <= totalRotation) targetRotation += 360;
-                
-                // 转盘顺时针旋转
-                wheel.style.transition = 'transform 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
-                wheel.style.transform = `rotate(${targetRotation}deg)`;
-                
-                totalRotation = targetRotation;
-                
-                // 3秒后停止
-                setTimeout(() => {
-                    isSpinning = false;
-                    spinButton.disabled = false;
-                    spinButton.textContent = "🎯 再次旋转";
-                    
-                    const colorName = colors[selectedNumber];
-                    alert(`🎉 恭喜！你转到的是【${colorName}】区域！\n\n每个颜色的概率：1/6 (约16.67%)`);
-                }, 3000);
-            });
-            
-            wheel.style.transform = `rotate(${totalRotation}deg)`;
-        });
-    </script>
+<ul id="list"></ul>
+
+<audio id="player" controls style="width:100%; margin-top:20px;"></audio>
+
+<script>
+const sources = [
+  {
+    name: "网易源",
+    search: (k) => `https://api.imjad.cn/cloudmusic/?type=search&s=${k}`,
+    song: (id) => `https://api.imjad.cn/cloudmusic/?type=song&id=${id}`,
+    parseSearch: (data) => data.result.songs.map(s => ({
+      id: s.id,
+      name: s.name,
+      artist: s.artists[0].name
+    })),
+    parseUrl: (data) => data.data[0].url
+  },
+  {
+    name: "备用源",
+    search: (k) => `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${k}`,
+    song: (id) => `https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=${id}`,
+    parseSearch: (data) => data.map(s => ({
+      id: s.id,
+      name: s.name,
+      artist: s.artist
+    })),
+    parseUrl: (data) => data.url
+  }
+];
+
+async function search() {
+  const k = document.getElementById("keyword").value;
+  const list = document.getElementById("list");
+  list.innerHTML = "搜索中...";
+
+  for (let source of sources) {
+    try {
+      const res = await fetch(source.search(k));
+      const data = await res.json();
+      const songs = source.parseSearch(data);
+
+      if (songs && songs.length) {
+        renderList(songs, source);
+        return;
+      }
+    } catch(e) {
+      console.log(source.name + "失败");
+    }
+  }
+
+  list.innerHTML = "没有找到歌曲";
+}
+
+function renderList(songs, source) {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  songs.slice(0, 20).forEach(song => {
+    const li = document.createElement("li");
+    li.innerText = `${song.name} - ${song.artist} (${source.name})`;
+
+    li.onclick = () => play(song.id);
+
+    list.appendChild(li);
+  });
+}
+
+async function play(id) {
+  const player = document.getElementById("player");
+
+  for (let source of sources) {
+    try {
+      const res = await fetch(source.song(id));
+      const data = await res.json();
+      const url = source.parseUrl(data);
+
+      if (url) {
+        player.src = url;
+        player.play();
+        console.log("使用源:", source.name);
+        return;
+      }
+    } catch(e) {}
+  }
+
+  alert("所有音源都无法播放 😢");
+}
+</script>
+
 </body>
 </html>
-
